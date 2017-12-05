@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 
 #include <daw/daw_benchmark.h>
 #include <daw/daw_random.h>
@@ -30,14 +31,11 @@
 #include "exception.h"
 #include "non_exception.h"
 
-#define TEST_SIZE 10'000'000
-
 intmax_t ex_test( std::vector<intmax_t> const &rnd_data ) noexcept {
-	intmax_t error_count = 0;
 	intmax_t result = 0;
-	for( size_t n = 0; n < TEST_SIZE; ++n ) {
+	for( size_t n = 0; n < rnd_data.size( ); ++n ) {
 		try {
-			switch( daw::randint<char>( 1, 4 ) ) {
+			switch( rnd_data[n] ) {
 			case 0:
 				result = daw::ex_func_0( result, rnd_data[n] );
 				break;
@@ -53,12 +51,11 @@ intmax_t ex_test( std::vector<intmax_t> const &rnd_data ) noexcept {
 			case 4:
 				result = daw::ex_func_4( result, rnd_data[n] );
 				break;
+			default:
+				result = daw::ex_func_1( result, rnd_data[n] );
 			}
 		} catch( daw::ex_tag const & ) {
-			++error_count;
-			if( error_count > 1'000'000 ) {
 				break;
-			}
 		}
 	}
 	return result;
@@ -66,10 +63,9 @@ intmax_t ex_test( std::vector<intmax_t> const &rnd_data ) noexcept {
 
 intmax_t non_ex_test( std::vector<intmax_t> const &rnd_data ) noexcept {
 	intmax_t result = 0;
-	intmax_t error_count = 0;
-	for( size_t n = 0; n < TEST_SIZE; ++n ) {
+	for( size_t n = 0; n < rnd_data.size( ); ++n ) {
 		intmax_t error_number = 0;
-		switch( daw::randint<char>( 1, 4 ) ) {
+		switch( rnd_data[n] ) {
 		case 0:
 			result = non_ex_func_0( result, rnd_data[n], error_number );
 			break;
@@ -85,21 +81,30 @@ intmax_t non_ex_test( std::vector<intmax_t> const &rnd_data ) noexcept {
 		case 4:
 			result = non_ex_func_4( result, rnd_data[n], error_number );
 			break;
+		default:
+			result = non_ex_func_1( result, rnd_data[n], error_number );
 		}
 		if( error_number != 0 ) {
-			++error_count;
-			if( error_count > 1'000'000 ) {
 				break;
-			}
 		}
 	}
 	return result;
 }
 
-int main( int, char ** ) {
+int main( int argc, char **argv ) {
+	std::stringstream ss{argv[2]};
+	size_t max_count = 0;
+	ss >> max_count;
+	size_t test_size = 0;
+	ss = std::stringstream{argv[1]};
+	ss >> test_size;
 	using namespace daw;
-	auto const rnd_data = daw::make_random_data<intmax_t>( TEST_SIZE * 2, 1, 100 );
-
+	auto rnd_data = daw::make_random_data<intmax_t>( test_size );
+	for( size_t n = 0; n < rnd_data.size( ) && n < max_count; ++n ) {
+		while( rnd_data[n] == 0 ) {
+			rnd_data[n] = randint<intmax_t>( -10000, 10000 );
+		}
+	}
 	double t1 = daw::benchmark( [&rnd_data]( ) {
 		auto result = non_ex_test( rnd_data );
 		daw::do_not_optimize( result );
